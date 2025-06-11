@@ -1,0 +1,60 @@
+\documentclass[UTF8]{ctexart}
+\usepackage{listings}
+\usepackage{booktabs}  
+\usepackage{geometry}  
+\usepackage{graphicx} 
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{amsmath,amssymb,bm}
+\usepackage[colorlinks=true]{hyperref}
+\usepackage[version=4]{mhchem}
+\usepackage{siunitx}
+\graphicspath{{figure/}} % 指定放置图片的子文件夹路径
+\geometry{a4paper, left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{codegray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{codegreen},
+    stringstyle=\color{codepurple},
+    showstringspaces=false
+}
+
+
+\begin{document}
+\title{计算流体力学期末大作业}
+\author{朱林-2200011028}
+\date{\today}
+\maketitle
+
+\section{数理算法原理}
+\section{代码生成与调试}
+\section{结果分析和物理解释}
+
+%附录
+\newpage
+\appendix
+\section{AI工具使用声明表}
+\begin{table}[H]
+    \centering
+    \begin{tabular}{c|c|c}
+        \hline
+        使用内容 & 工具名称 & 使用目的 \\ \hline
+        hw2.tex 1-9行、图片插入 & Github Copilot & 调整pdf格式，调用宏包，省略插入图片的重复性工作 \\ 
+        main.py 6-15行 & DeepSeek & 修正 matplotlib 中文显示问题 \\ 
+        ReadMe.md框架 & DeepSeek & 在DeepSeek的帮助下生成一个框架，在此基础上增加而来 \\
+        .gitignore & Github Copilot & 针对于python和latex的.gitignore文件，完全由Copilot生成  
+    \end{tabular}
+    \label{tab:AI_tools}
+\end{table}
+\end{document}

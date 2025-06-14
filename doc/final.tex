@@ -11,13 +11,14 @@
 \usepackage[colorlinks=true]{hyperref}
 \usepackage[version=4]{mhchem}
 \usepackage{siunitx}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 \graphicspath{{figure/}} % 指定放置图片的子文件夹路径
 \geometry{a4paper, left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
-
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
 \definecolor{codepurple}{rgb}{0.58,0,0.82}
-
 \lstset{
     basicstyle=\ttfamily\footnotesize,
     breaklines=true,
@@ -38,8 +39,45 @@
 \maketitle
 
 \section{数理算法原理}
-\section{代码生成与调试}
-\section{结果分析和物理解释}
+\subsection{问题描述}
+\subsubsection{物理情形}
+Sod激波管问题是一个一维理想气体流动问题：无限长管道中，初始时刻($t=0$)在$x=0$处有一薄膜分隔两侧气体：
+\begin{itemize}
+    \item 左侧($x<0$): 高压区，状态为$(\rho_L, u_L, p_L)$
+    \item 右侧($x>0$): 低压区，状态为$(\rho_R, u_R, p_R)$
+\end{itemize}
+
+薄膜在$t=0^+$时刻瞬时破裂，两侧气体开始相互作用，产生复杂的波系结构。
+
+\subsubsection{标准初始条件}
+采用以下无量纲初始条件：
+\begin{align*}
+\text{左侧:} & \quad \rho_L = 1.0,  u_L = 0.0,  p_L = 1.0 \\
+\text{右侧:} & \quad \rho_R = 0.125,  u_R = 0.0,  p_R = 0.1
+\end{align*}
+
+\subsection{控制方程}
+流动由一维欧拉方程描述：
+\begin{align}
+&\frac{\partial \mathbf{U}}{\partial t} + \frac{\partial f(\mathbf{U})}{\partial x} = 0 \\
+&\mathbf{U} = \begin{bmatrix} \rho \\ \rho u \\ E \end{bmatrix}, \quad
+f(\mathbf{U}) = \begin{bmatrix} \rho u \\ \rho u^2 + p \\ u(E + p) \end{bmatrix}
+\end{align}
+其中总能密度$E = \rho e = \rho (C_v T + \frac{1}{2}u^2)$。
+
+\subsection{Riemann问题精确解}
+通过查阅资料，Sod激波管问题的精确解可以通过黎曼问题的解法得到。该问题的解由四个区域组成，分别对应不同的流动状态和波系结构。
+\subsubsection{波系结构}
+
+
+
+\subsubsection{解析解表达式}
+
+
+
+作为黎曼问题的最简单形式，Sod激波管是理解更复杂流动机理的基础。同时常用于计算流体中作为典型案例检验算法和格式。
+
+
 
 %附录
 \newpage

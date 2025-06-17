@@ -124,6 +124,73 @@ $W_s$ 为激波传播速度，$c_L = \sqrt{\gamma p_L/\rho_L}$ 为左侧声速�
 
 作为黎曼问题的最简单形式，Sod激波管是理解更复杂流动机理的基础，同时常用于计算流体中作为典型案例检验算法和格式。
 
+\subsection{数值计算方法}
+\subsubsection{计算域与网格}
+针对Sod激波管问题，选择对称计算域$[-L,L]$以满足激波传播的物理需求。考虑无量纲化处理，定义计算域为$[-1,1]$，满足$L=1$，时间计算域$t\in[0,T]$，其中$T$由流场演化决定（通常$T=0.2$可达稳定）。采用均匀网格离散：
+
+$$\Delta x = \frac{2L}{N},\quad x_i = -L + \left(i-\frac{1}{2}\right)\Delta x,\quad i=1,2,\cdots,N$$
+
+其中$N$为网格单元数，采用半整数索引避免边界处理。网格收敛性分析需考察$N=100,200,400$等情形，重点关注激波、接触间断和膨胀波区的分辨率。
+
+\subsubsection{激波捕捉格式}
+为精确捕捉激波管中的复杂波系，采用以下三类激波捕捉格式：
+
+\begin{enumerate}
+    \item \textbf{TVD格式 (Harten-Yee迎风格式)}  
+    总变差减小(TVD)格式保证解在激波处无振荡：
+    $$\frac{\partial U_i}{\partial t} = -\frac{1}{\Delta x}\left(\hat{f}_{i+1/2} - \hat{f}_{i-1/2}\right)$$
+    数值通量构造：
+    $$\hat{f}_{i+1/2} = \frac{1}{2}\left[f(U_L) + f(U_R) - \Phi_{i+1/2}(U_R - U_L)\right]$$
+    限制器函数$\Phi$选用minmod限制器：
+    $$\Phi(r) = \max\left[0,\min(1,r)\right],\quad r = \frac{U_i - U_{i-1}}{U_{i+1} - U_i}$$
+    
+    \item \textbf{群速度控制格式 (GVC)}  
+    修正通量导数抑制高波数振荡：
+    $$\frac{\partial \hat{f}}{\partial x} \approx \frac{\hat{f}_{i+1/2} - \hat{f}_{i-1/2}}{\Delta x} + \tau\Delta x^2\frac{\partial^3 f}{\partial x^3}$$
+    其中$\tau$为控制参数，三阶导数项离散为：
+    $$\frac{\partial^3 f}{\partial x^3}\bigg|_i \approx \frac{-f_{i-2} + 3f_{i-1} - 3f_i + f_{i+1}}{\Delta x^3}$$
+    
+    \item \textbf{WENO格式 (五阶WENO-JS)}  
+    加权本质无振荡格式构造：
+    $$\hat{f}_{i+1/2} = \sum_{k=0}^{r-1}\omega_k q_k$$
+    光滑指示器$\beta_k$计算：
+    \begin{align*}
+    \beta_0 &= \frac{13}{12}(f_{i-2}-2f_{i-1}+f_i)^2 + \frac{1}{4}(f_{i-2}-4f_{i-1}+3f_i)^2 \\
+    \beta_1 &= \frac{13}{12}(f_{i-1}-2f_i+f_{i+1})^2 + \frac{1}{4}(f_{i-1}-f_{i+1})^2 \\
+    \beta_2 &= \frac{13}{12}(f_i-2f_{i+1}+f_{i+2})^2 + \frac{1}{4}(3f_i-4f_{i+1}+f_{i+2})^2
+    \end{align*}
+    非线性权重$\omega_k = \frac{\alpha_k}{\sum\alpha_k},\ \alpha_k = \frac{d_k}{(\beta_k + \epsilon)^2}$
+\end{enumerate}
+
+\subsubsection{数值通量计算方法}
+\begin{enumerate}
+    \item \textbf{通量向量分裂 (FVS - Steger-Warming格式)}  
+    特征分裂处理对流项：
+    $$f = f^+ + f^-,\quad f^\pm = A^\pm U$$
+    其中$A^\pm = R\Lambda^\pm L$，特征值分解$\Lambda = \text{diag}(u,u+c,u-c)$，$\Lambda^\pm$取正负特征值部分。
+    
+    \item \textbf{通量差分分裂 (FDS - Roe格式)}  
+    构造Roe平均矩阵$\tilde{A}_{i+1/2}$：
+    \begin{align*}
+    \tilde{\rho} &= \sqrt{\rho_L\rho_R},\quad \tilde{u} = \frac{\sqrt{\rho_L}u_L + \sqrt{\rho_R}u_R}{\sqrt{\rho_L} + \sqrt{\rho_R}} \\
+    \tilde{H} &= \frac{\sqrt{\rho_L}H_L + \sqrt{\rho_R}H_R}{\sqrt{\rho_L} + \sqrt{\rho_R}},\quad \tilde{c} = \sqrt{(\gamma-1)\left(\tilde{H} - \frac{1}{2}\tilde{u}^2\right)}
+    \end{align*}
+    数值通量计算：
+    $$\hat{f}_{i+1/2} = \frac{1}{2}\left[f(U_L)+f(U_R)\right] - \frac{1}{2}|\tilde{A}_{i+1/2}|(U_R - U_L)$$
+\end{enumerate}
+
+\subsubsection{时间推进方法}
+采用三阶TVD Runge-Kutta方法离散时间项：
+\begin{align*}
+U^{(1)} &= U^n + \Delta t L(U^n) \\
+U^{(2)} &= \frac{3}{4}U^n + \frac{1}{4}U^{(1)} + \frac{1}{4}\Delta t L(U^{(1)}) \\
+U^{n+1} &= \frac{1}{3}U^n + \frac{2}{3}U^{(2)} + \frac{2}{3}\Delta t L(U^{(2)})
+\end{align*}
+其中$L(U)$为空间离散算子。时间步长由CFL条件约束：
+$$\Delta t = \text{CFL}\cdot\frac{\Delta x}{\max(|u| + c)},\quad \text{CFL} \in [0.3, 0.6]$$
+三阶精度与TVD特性保证激波捕捉的数值稳定性。
+
+
 
 %附录
 \newpage

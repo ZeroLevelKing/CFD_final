@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
+import os
 
 def initialize(nx=200, t_end=2.0, cfl=0.5):
     """
@@ -58,6 +60,29 @@ def initialize(nx=200, t_end=2.0, cfl=0.5):
     
     return params
 
+def set_chinese_font():
+    """设置中文字体支持"""
+    try:
+        # 查找系统支持中文的字体
+        system_fonts = font_manager.findSystemFonts()
+        chinese_fonts = [f for f in system_fonts if any(lang in f.lower() for lang in ['simhei', 'simsun', 'microsoftyahei', 'kaiti', 'stkaiti', 'fangsong', 'stfangsong'])]
+        
+        if chinese_fonts:
+            # 使用找到的第一个中文字体
+            plt.rcParams['font.sans-serif'] = [os.path.basename(chinese_fonts[0]).split('.')[0]]
+            print(f"使用中文字体: {plt.rcParams['font.sans-serif'][0]}")
+        else:
+            # 使用默认字体，但尝试支持中文
+            plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']
+            print("警告: 未找到系统中文字体，使用备用字体")
+        
+        # 解决负号显示问题
+        plt.rcParams['axes.unicode_minus'] = False
+    except Exception as e:
+        print(f"字体设置失败: {e}")
+        plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+        plt.rcParams['axes.unicode_minus'] = False
+
 def plot_solution(params, U, t, title='解分布', filename=None):
     """
     绘制任意时刻的速度、压强、密度分布
@@ -69,6 +94,9 @@ def plot_solution(params, U, t, title='解分布', filename=None):
     title -- 图表标题 (可选)
     filename -- 保存文件名 (可选，不指定则不保存)
     """
+
+    set_chinese_font()  # 设置中文字体支持
+
     x = params['x']
     gamma = params['gamma']
     
@@ -116,30 +144,5 @@ def plot_solution(params, U, t, title='解分布', filename=None):
     
     plt.close()
 
-if __name__ == "__main__":
-    # 测试初始化函数
-    params = initialize(nx=400)
-    print("初始化参数:")
-    print(f"网格点数: {params['nx']}")
-    print(f"空间步长: {params['dx']:.4f}")
-    print(f"计算域: [{params['x_min']}, {params['x_max']}]")
-    
-    # 测试绘图函数 (使用初始条件)
-    plot_solution(params, params['U_init'], t=0.0, 
-                 title='初始条件分布', 
-                 filename='initial_condition.png')
-    
-    # 创建一个测试用的解 (假设是t=0.2时刻的解)
-    U_test = params['U_init'].copy()
-    
-    # 在中间区域添加一些扰动，模拟解的演变
-    mask = np.abs(params['x']) < 1.0
-    U_test[0, mask] *= 1.0 + 0.1 * np.exp(-params['x'][mask]**2 * 5)
-    U_test[1, mask] = U_test[0, mask] * 0.5 * np.sin(np.pi * params['x'][mask])
-    U_test[2, mask] = (params['gamma'] - 1) * U_test[0, mask] * 0.1 * np.exp(-params['x'][mask]**2 * 3)
-    
-    # 绘制测试解
-    plot_solution(params, U_test, t=0.2, 
-                 title='测试解分布 (t=0.2)')
     
     

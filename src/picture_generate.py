@@ -45,15 +45,7 @@ c_fan = np.linspace(c_L, c_L*0.8, 50)  # 简化声速变化
 y_fan = 0.1 * (c_fan / c_L)  # 用声速变化表示膨胀波
 ax.plot(x_fan, y_fan, 'purple', linestyle='--', alpha=0.7)
 
-# 添加区域标签 - 使用Unicode字符避免LaTeX问题
-ax.text(-1.8, 0.6, '区域1: ρ=1.0, u=0.0, p=1.0', fontsize=10, 
-        bbox=dict(facecolor='white', alpha=0.8))
-ax.text(-0.2, 0.6, '区域2: ρ=0.426, u=0.927, p=0.303', fontsize=10, 
-        bbox=dict(facecolor='white', alpha=0.8))
-ax.text(1.0, 0.6, '区域3: ρ=0.265, u=0.927, p=0.303', fontsize=10, 
-        bbox=dict(facecolor='white', alpha=0.8))
-ax.text(2.5, 0.6, '区域4: ρ=0.125, u=0.0, p=0.1', fontsize=10, 
-        bbox=dict(facecolor='white', alpha=0.8))
+
 
 # 添加波标签
 ax.annotate('膨胀波', xy=(x_left, 0.2), xytext=(x_left-0.5, 0.4), 

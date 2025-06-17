@@ -139,6 +139,7 @@ def plot_solution(params, U, t, title='解分布', filename=None):
     if filename:
         plt.savefig(filename, dpi=300)
         print(f"已保存解分布图: {filename}")
+        plt.show()
     else:
         plt.show()
     

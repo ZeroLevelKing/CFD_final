@@ -77,4 +77,5 @@ ax.text(2.5, 0.9, '未扰动低压区 →', fontsize=9, color='red', ha='right')
 
 # 保存图像
 plt.tight_layout()
+plt.savefig('wave_structure.png', dpi=300, bbox_inches='tight')
 plt.show()

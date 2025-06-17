@@ -218,6 +218,7 @@ Thumbs.db
 # 其他工具临时文件
 *.bib~
 *.tex~
+*.bbl-SAVE-ERROR
 
 # JetBrains 全系列 IDE 配置（IntelliJ/PyCharm/WebStorm等）
 +.idea/

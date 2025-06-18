@@ -26,8 +26,7 @@ src/
 │   ├── __init__.py
 │   ├── boundary.py        # 边界条件处理
 │   ├── exact_solution.py  # 精确解计算
-│   ├── visualization.py   # 结果可视化
-│   └── diagnostics.py     # 计算诊断
+│   └── visualization.py   # 结果可视化
 │
 └── characteristic/        # 特征重构方法(附加题)
     ├── __init__.py

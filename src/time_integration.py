@@ -70,7 +70,7 @@ def compute_dt(U, dx, cfl, gamma):
         dt = cfl * dx / max_speed
     
     # 添加最小时间步长限制
-    min_dt = 1e-10
+    min_dt = 1e-6
     dt = max(dt, min_dt)
     
     return dt

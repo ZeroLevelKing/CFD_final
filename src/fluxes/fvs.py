@@ -337,3 +337,78 @@ def lax_friedrichs_flux(states, gamma):
     F = 0.5 * (F_L + F_R) - 0.5 * max_speed * (U_R - U_L)
     
     return F
+
+
+def central_flux(state, gamma):
+    """
+    计算单元中心通量 (欧拉方程的守恒通量)
+    
+    参数:
+    state -- 状态向量 [ρ, ρu, E], 形状为 (3,)
+    gamma -- 比热比
+    
+    返回:
+    通量向量 (3,)
+    """
+    rho = max(state[0], 1e-10)
+    u = state[1] / rho
+    e = max(state[2] - 0.5 * rho * u**2, 1e-10)
+    p = max((gamma - 1) * e, 1e-10)
+    
+    F = np.array([
+        rho * u,
+        rho * u**2 + p,
+        u * (state[2] + p)
+    ])
+    
+    return F
+
+# 修改现有通量函数，添加一个包装器
+def make_flux_function(flux_func):
+    """
+    创建通用通量函数，既能处理界面通量也能处理单元中心通量
+    
+    参数:
+    flux_func -- 原始通量函数 (需要两个状态)
+    
+    返回:
+    通用通量函数
+    """
+    def wrapper(states, gamma):
+        if states.shape[1] == 1:
+            # 单个状态 - 计算单元中心通量
+            return central_flux(states[:, 0], gamma)
+        elif states.shape[1] == 2:
+            # 两个状态 - 计算界面通量
+            return flux_func(states, gamma)
+        else:
+            raise ValueError("无效的状态数组形状")
+    
+    return wrapper
+
+# 为每个通量函数创建包装器
+steger_warming_flux_wrapped = make_flux_function(steger_warming_flux)
+van_leer_flux_wrapped = make_flux_function(van_leer_flux)
+ausm_flux_wrapped = make_flux_function(ausm_flux)
+lax_friedrichs_flux_wrapped = make_flux_function(lax_friedrichs_flux)
+
+def get_flux_function(flux_type='steger_warming'):
+    """
+    获取指定的通量函数 (包装后的版本)
+    
+    参数:
+    flux_type -- 通量类型 ('steger_warming', 'van_leer', 'ausm', 'lax_friedrichs')
+    
+    返回:
+    通量计算函数
+    """
+    if flux_type == 'steger_warming':
+        return steger_warming_flux_wrapped
+    elif flux_type == 'van_leer':
+        return van_leer_flux_wrapped
+    elif flux_type == 'ausm':
+        return ausm_flux_wrapped
+    elif flux_type == 'lax_friedrichs':
+        return lax_friedrichs_flux_wrapped
+    else:
+        raise ValueError(f"未知的通量类型: {flux_type}")

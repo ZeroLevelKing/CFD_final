@@ -1,30 +1,40 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import os
-from matplotlib import font_manager
+import matplotlib.font_manager as fm
+import platform
 
 def set_chinese_font():
-    """设置中文字体支持"""
+    """
+    设置中文字体支持
+    
+    此函数会根据操作系统自动选择合适的中文字体
+    """
+    # 获取当前操作系统
+    system = platform.system()
+    
+    # 设置默认字体
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'KaiTi']
+    plt.rcParams['axes.unicode_minus'] = False  # 正确显示负号
+    
+    # 尝试加载特定字体
     try:
-        # 查找系统支持中文的字体
-        system_fonts = font_manager.findSystemFonts()
-        chinese_fonts = [f for f in system_fonts if any(lang in f.lower() for lang in ['simhei', 'simsun', 'microsoftyahei', 'kaiti', 'stkaiti', 'fangsong', 'stfangsong'])]
-        
-        if chinese_fonts:
-            # 使用找到的第一个中文字体
-            plt.rcParams['font.sans-serif'] = [os.path.basename(chinese_fonts[0]).split('.')[0]]
-            print(f"使用中文字体: {plt.rcParams['font.sans-serif'][0]}")
+        if system == 'Windows':
+            # Windows 系统
+            font_path = fm.findfont('SimHei')
+        elif system == 'Darwin':
+            # macOS 系统
+            font_path = fm.findfont('STHeiti')
         else:
-            # 使用默认字体，但尝试支持中文
-            plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']
-            print("警告: 未找到系统中文字体，使用备用字体")
+            # Linux 系统
+            font_path = fm.findfont('WenQuanYi Micro Hei')
         
-        # 解决负号显示问题
-        plt.rcParams['axes.unicode_minus'] = False
-    except Exception as e:
-        print(f"字体设置失败: {e}")
-        plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-        plt.rcParams['axes.unicode_minus'] = False
+        # 设置字体
+        plt.rcParams['font.family'] = fm.FontProperties(fname=font_path).get_name()
+        print(f"使用中文字体: {plt.rcParams['font.family']}")
+    except:
+        # 如果找不到字体，使用默认设置
+        print("警告: 无法找到中文字体，使用默认设置")
+        plt.rcParams['font.family'] = 'sans-serif'
 
 def plot_solution_comparison(params, U_num, exact_data, t, title='数值解与精确解对比', filename=None):
     """

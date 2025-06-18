@@ -1,15 +1,6 @@
-"""
-CFD大作业 - 工具函数模块
-
-包含以下子模块:
-- boundary: 边界条件处理
-- exact_solution: 精确解计算
-- visualization: 结果可视化
-"""
-
 # 导入边界条件模块
 from .boundary import (
-    apply_boundary_conditions,
+   apply_boundary_conditions,
     non_reflective_bc,
     characteristic_bc,
     periodic_bc,

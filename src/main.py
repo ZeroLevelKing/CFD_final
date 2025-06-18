@@ -1,4 +1,7 @@
+import numpy as np
 from initialization import create_domain, initialize_sod, set_initial_conditions
+from utils.visualization import plot_solution_comparison
+from utils.exact_solution import compute_exact
 
 def main():
     # 设置计算域
@@ -31,3 +34,6 @@ def main():
         print(f"\n初始间断位置: x ≈ {disc_x:.2f}")
         print(f"  左侧状态: ρ={left['rho']:.3f}, u={left['u']:.3f}, p={left['p']:.3f}")
         print(f"  右侧状态: ρ={right['rho']:.3f}, u={right['u']:.3f}, p={right['p']:.3f}")
+
+if __name__ == "__main__":
+    main()

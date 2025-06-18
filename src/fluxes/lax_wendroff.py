@@ -1,4 +1,4 @@
-# src/fluxes/fds.py
+# src/fluxes/lax_wendroff.py
 
 import numpy as np
 
@@ -19,7 +19,7 @@ def lax_wendroff_flux(states, gamma, dx, dt):
     U_L = states[:, 0]
     U_R = states[:, 1]
     
-    # 计算左状态原始变量（添加多重保护）
+    # 计算左状态原始变量（添加保护）
     rho_L = max(U_L[0], 1e-10)
     u_L = U_L[1] / max(rho_L, 1e-10)
     e_L = max(U_L[2] - 0.5 * rho_L * min(u_L**2, 1e10), 1e-10)
@@ -31,7 +31,7 @@ def lax_wendroff_flux(states, gamma, dx, dt):
     e_R = max(U_R[2] - 0.5 * rho_R * min(u_R**2, 1e10), 1e-10)
     p_R = max((gamma - 1) * e_R, 1e-10)
     
-    # 计算左右通量（添加保护）
+    # 计算左右通量
     F_L = np.array([
         rho_L * u_L,
         rho_L * min(u_L**2, 1e10) + p_L,
@@ -47,7 +47,7 @@ def lax_wendroff_flux(states, gamma, dx, dt):
     # 计算中间状态 U_{i+1/2}^{n+1/2}
     U_mid = 0.5 * (U_L + U_R) - 0.5 * (dt / dx) * (F_R - F_L)
     
-    # 计算中间状态的原始变量（添加保护）
+    # 计算中间状态的原始变量
     rho_mid = max(U_mid[0], 1e-10)
     u_mid = U_mid[1] / max(rho_mid, 1e-10)
     e_mid = max(U_mid[2] - 0.5 * rho_mid * min(u_mid**2, 1e10), 1e-10)

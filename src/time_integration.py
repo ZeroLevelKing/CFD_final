@@ -31,42 +31,46 @@ def rk3(U, RHS, dt, params):
     
     return U_new
 
+
+
+# 在 compute_dt 函数中添加更严格的保护
+
 def compute_dt(U, dx, cfl, gamma):
     """
-    计算满足 CFL 条件的时间步长
+    根据CFL条件计算时间步长
     
     参数:
     U -- 守恒变量数组 [ρ, ρu, E], 形状为 (3, nx)
     dx -- 空间步长
-    cfl -- CFL 数
+    cfl -- CFL数
     gamma -- 比热比
     
     返回:
     时间步长 dt
     """
-    # 计算原始变量
-    rho = U[0]
+    # 计算原始变量（添加更严格的保护）
+    rho = np.maximum(U[0], 1e-10)
+    u = U[1] / np.maximum(rho, 1e-10)
     
-    # 避免除以零
-    rho_safe = np.maximum(rho, 1e-10)
-    u = U[1] / rho_safe
-    
-    p = (gamma - 1) * (U[2] - 0.5 * rho * u**2)
-    
-    # 避免负压
-    p = np.maximum(p, 1e-10)
+    # 计算内能，确保非负
+    e = np.maximum(U[2] - 0.5 * rho * np.minimum(u**2, 1e10), 1e-10)
+    p = np.maximum((gamma - 1) * e, 1e-10)
     
     # 计算声速
-    c = np.sqrt(gamma * p / rho_safe)
+    c = np.sqrt(gamma * p / np.maximum(rho, 1e-10))
     
-    # 计算最大特征速度
+    # 计算最大波速
     max_speed = np.max(np.abs(u) + c)
     
-    # 避免除以零
-    if max_speed < 1e-10:
-        max_speed = 1e-10
-    
     # 计算时间步长
-    dt = cfl * dx / max_speed
+    if max_speed < 1e-10:
+        # 避免除以零
+        dt = cfl * dx
+    else:
+        dt = cfl * dx / max_speed
+    
+    # 添加最小时间步长限制
+    min_dt = 1e-10
+    dt = max(dt, min_dt)
     
     return dt

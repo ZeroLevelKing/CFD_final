@@ -75,23 +75,23 @@ def muscl_reconstruction(U, limiter='minmod'):
     return U_L, U_R
 
 
-def tvd_flux(U, flux_func, gamma, limiter='minmod'):
+def tvd_flux(U, flux_func, gamma=None, limiter='minmod', **kwargs):
     """
     TVD 格式通量计算
     
     参数:
     U -- 守恒变量数组 [ρ, ρu, E], 形状为 (3, nx)
-    flux_func -- 通量计算函数
-    gamma -- 比热比
-    limiter -- 限制器类型
+    flux_func -- 通量计算函数，接受左右状态作为参数
+    gamma -- 比热比（可选）
+    limiter -- 限制器类型 ('minmod', 'superbee', 'van_leer')
+    kwargs -- 传递给通量函数的额外参数
     
     返回:
-    通量数组 F, 形状为 (3, nx-1)  # 注意：返回的界面通量比网格点数少1
+    通量数组 F, 形状为 (3, nx-1)
     """
     # MUSCL 重构
     U_L, U_R = muscl_reconstruction(U, limiter)
     
-    # 计算界面通量
     nx = U.shape[1]
     F = np.zeros((3, nx-1))  # 界面通量比网格点数少1
     
@@ -106,7 +106,10 @@ def tvd_flux(U, flux_func, gamma, limiter='minmod'):
         states = np.array([state_left, state_right]).T
         
         # 计算通量
-        flux_i = flux_func(states, gamma)
+        if gamma is not None:
+            flux_i = flux_func(states, gamma, **kwargs)
+        else:
+            flux_i = flux_func(states, **kwargs)
         
         # 存储通量
         F[:, i] = flux_i

@@ -167,7 +167,7 @@ $$\begin{aligned}&c(t,x)=\frac{\gamma-1}{\gamma+1}\left(u_{1}-\frac{x}{t}\right)
 % 补充边界条件说明
 \subsubsection{计算域与网格}
 
-计算域设置为 $x \in [-5, 5]$，时间计算域为 $t \in [0, 2.0]$，该范围足以捕捉Sod问题中激波、接触间断和膨胀波的完整演化过程。空间离散采用均匀网格划分，网格间距 $\Delta x$ 由计算域长度和网格数动态确定。时间步长 $\Delta t$ 根据CFL条件自适应调整：
+计算域默认设置为 $x \in [-5, 5]$，时间计算域为 $t \in [0, 2.0]$，该范围足以捕捉Sod问题中激波、接触间断和膨胀波的完整演化过程。空间离散采用均匀网格划分，网格间距 $\Delta x$ 由计算域长度和网格数动态确定。时间步长 $\Delta t$ 根据CFL条件自适应调整：
 
 \begin{equation}
 \Delta t = \text{CFL} \cdot \frac{\Delta x}{\max(|u| + c)}
@@ -181,142 +181,322 @@ U_{N+1} &= U_N
 此边界处理可有效抑制数值反射，确保波系在计算域内自由传播。网格收敛性研究表明，接触间断分辨率对网格依赖性显著，需足够细密的网格才能准确捕捉密度突变特征。
 
 \subsubsection{激波捕捉格式}
-\paragraph{1. TVD格式:}
-TVD（总变差递减）格式通过限制器函数控制空间离散的振荡特性，其核心原理为：
-\begin{equation}
-\phi(r) = \max[0, \min(1,r)] \quad (r=\text{梯度比})
-\end{equation}
-采用MUSCL（单调上游中心格式）重构框架，通过斜率限制实现：
-1. 单元界面状态线性重构：$U_{i+1/2} = U_i + \frac{\phi}{2}\Delta U$
-2. 通量计算采用Riemann求解器
-3. 时间推进使用三阶Runge-Kutta
-该格式在激波附近自动降阶，保持单调性但引入数值耗散，对接触间断分辨率有限。
+\paragraph{TVD格式（Minmod限制器）}
 
-\paragraph{2. 群速度控制:}
-群速度控制（GVC）格式通过修正通量抑制高频振荡，其物理基础为：
+总变差定义：
 \begin{equation}
-F^{\text{GVC}} = (1-\alpha)F^{\text{high}} + \alpha F^{\text{low}}
+TV(U^n) = \sum_{i=-\infty}^{\infty} |U_{i+1}^n - U_i^n|
 \end{equation}
-核心计算步骤：
-1. 计算特征速度$\lambda_k$及其空间梯度
-2. 构建控制因子$\alpha$，正比于特征速度变化率
-3. 混合高精度通量与低耗散通量
-当检测到特征速度剧烈变化（激波区域）时，自动增强耗散项抑制非物理振荡，光滑区域保持高阶精度。
+TVD条件：
+\begin{equation}
+TV(U^{n+1}) \leq TV(U^n)
+\end{equation}
+通量限制器格式：
+\begin{equation}
+F_{i+\frac{1}{2}} = F_i + \frac{1}{2} \phi(r_i) (F_{i+1} - F_i)
+\end{equation}
+梯度比：
+\begin{equation}
+r_i = \frac{U_i - U_{i-1}}{U_{i+1} - U_i}
+\end{equation}
+Minmod限制器函数：
+\begin{equation}
+\phi(r) = \text{minmod}(1, r) = 
+\begin{cases} 
+0 & r \leq 0 \\
+r & 0 < r < 1 \\
+1 & r \geq 1 
+\end{cases}
+\end{equation}
+性质：
+\begin{itemize}
+\item 满足二阶精度条件：$\phi(1)=1$
+\item 满足TVD条件：$0 \leq \phi(r) \leq \min(2,2r)$
+\item 在间断处退化为单调的一阶格式
+\end{itemize}
 
-\paragraph{3. WENO格式:}
-加权本质无振荡（WENO）格式采用自适应模板选择策略：
-\begin{equation}
-F_{i+1/2} = \sum_{k} \omega_k F_k
-\end{equation}
-数值实现要点：
-1. 构建多个候选插值模板（左偏、中心、右偏）
-2. 计算各模板光滑指示器$\beta_k$：$\beta_k \propto \sum (\Delta^l U)^2$
-3. 设计非线性权重$\omega_k \sim 1/(\beta_k + \epsilon)^p$
-4. 加权组合各模板通量
-该格式在间断附近自动选择最光滑模板，保持高阶精度的同时实现本质无振荡，对膨胀波分辨率尤为优越。
+\paragraph{群速度控制（GVC）格式}
 
+通量修正方程：
+\begin{equation}
+\mathbf{F}^{GVC} = \mathbf{F}^{base} + \epsilon \Delta x^3 \frac{\partial^3 \mathbf{U}}{\partial x^3}
+\end{equation}
+三阶导数离散：
+\begin{equation}
+\left.\frac{\partial^3 U}{\partial x^3}\right|_i \approx \frac{-U_{i-2} + 2U_{i-1} - 2U_{i+1} + U_{i+2}}{2\Delta x^3}
+\end{equation}
+自适应控制系数：
+\begin{equation}
+\epsilon = C \cdot |u \pm c|, \quad C \in [0.1, 0.5]
+\end{equation}
+修正后群速度：
+\begin{equation}
+v_g^{num} = v_g^{exact} - 4\epsilon k^2 \Delta x^2
+\end{equation}
 
-\subsubsection{数值通量计算方法}
-\paragraph{1. FVS (通量矢量分裂)}
-通量矢量分裂的核心思想是将Euler通量分解为正向传播和逆向传播分量：
-\begin{equation}
-f(U) = f^+(U) + f^-(U)
-\end{equation}
-计算原理：
-1. 基于局部特征速度进行通量分裂：
-\begin{equation}
-f^{\pm} = \frac{1}{2}(f(U) \pm \alpha U)
-\end{equation}
-其中$\alpha$为最大特征速度
-2. Steger-Warming分裂方案：
-\begin{equation}
-f^{\pm} = \frac{1}{2}\left(\rho u \pm \rho |u|\right) + \cdots
-\end{equation}
-3. 界面通量计算：
-\begin{equation}
-f_{i+1/2} = f^+(U_L) + f^-(U_R)
-\end{equation}
-该格式结构简单但引入数值耗散，特别适合激波捕捉，但接触间断分辨率有限。
+\paragraph{WENO格式}
 
-\paragraph{2. FDS (通量差分裂)}
-通量差分裂方法基于Riemann问题精确解思想：
+\textbf{基本框架}
+
+\begin{enumerate}
+\item 选择模板：$S_0=\{I_{i-2},I_{i-1},I_i\}$, $S_1=\{I_{i-1},I_i,I_{i+1}\}$, $S_2=\{I_i,I_{i+1},I_{i+2}\}$
+\item 重构多项式：
+\begin{align}
+p_0(x) &= \frac{1}{3}U_{i-2} - \frac{7}{6}U_{i-1} + \frac{11}{6}U_i \\
+p_1(x) &= -\frac{1}{6}U_{i-1} + \frac{5}{6}U_i + \frac{1}{3}U_{i+1} \\
+p_2(x) &= \frac{1}{3}U_i + \frac{5}{6}U_{i+1} - \frac{1}{6}U_{i+2}
+\end{align}
+\end{enumerate}
+
+\textbf{WENO-JS}
+光滑指示器：
+\begin{align}
+\beta_k &= \sum_{l=1}^{2} \Delta x^{2l-1} \int_{x_{i-1/2}}^{x_{i+1/2}} \left( \frac{d^l p_k(x)}{dx^l} \right)^2 dx \\
+\beta_0 &= \frac{13}{12}(U_{i-2}-2U_{i-1}+U_i)^2 + \frac{1}{4}(U_{i-2}-4U_{i-1}+3U_i)^2 \\
+\beta_1 &= \frac{13}{12}(U_{i-1}-2U_i+U_{i+1})^2 + \frac{1}{4}(U_{i-1}-U_{i+1})^2 \\
+\beta_2 &= \frac{13}{12}(U_i-2U_{i+1}+U_{i+2})^2 + \frac{1}{4}(3U_i-4U_{i+1}+U_{i+2})^2
+\end{align}
+非线性权重：
+\begin{align}
+\alpha_k &= \frac{d_k}{(\beta_k + \varepsilon)^p}, \quad \omega_k = \frac{\alpha_k}{\sum_{m=0}^{2} \alpha_m} \\
+d_0 &= 0.3, \quad d_1 = 0.6, \quad d_2 = 0.1 \\
+\varepsilon &= 10^{-6}, \quad p = 2
+\end{align}
+
+\textbf{WENO-Z}
+
+改进权重：
+\begin{align}
+\tau_5 &= |\beta_0 - \beta_2| \\
+\alpha_k^Z &= d_k \left( 1 + \frac{\tau_5}{\beta_k + \varepsilon} \right) \\
+\omega_k^Z &= \frac{\alpha_k^Z}{\sum_{m=0}^{2} \alpha_m^Z}
+\end{align}
+优势：光滑区$\omega_k \to d_k$，收敛阶$\mathcal{O}(\Delta x^5)$
+
+\subsubsection{通量处理方法}
+
+\paragraph{通量矢量分裂(FVS)}
+
+\textbf{Steger-Warming分裂}
+
+\begin{align}
+\mathbf{F} &= \mathbf{F}^+ + \mathbf{F}^- = \mathbf{R}\mathbf{\Lambda}^+\mathbf{R}^{-1}\mathbf{U} + \mathbf{R}\mathbf{\Lambda}^-\mathbf{R}^{-1}\mathbf{U} \\
+\lambda^\pm &= \frac{\lambda \pm |\lambda|}{2}
+\end{align}
+一维欧拉方程形式：
 \begin{equation}
-f_{i+1/2} = \frac{1}{2}\left[f(U_L) + f(U_R)\right] - \frac{1}{2}\sum_{k=1}^{3} \alpha_k |\lambda_k| r_k
+\mathbf{f}^{\pm} = \frac{\rho}{2\gamma} \begin{bmatrix}
+(\gamma-1)\lambda_1^\pm + \lambda_3^\pm + \lambda_5^\pm \\
+2(\gamma-1)\lambda_1^\pm u + \lambda_3^\pm (u+c) + \lambda_5^\pm (u-c) \\
+(\gamma-1)\lambda_1^\pm u^2 + \frac{1}{2}\lambda_3^\pm (u+c)^2 + \frac{1}{2}\lambda_5^\pm (u-c)^2 + \frac{3-\gamma}{2(\gamma-1)}(\lambda_3^\pm + \lambda_5^\pm)c^2
+\end{bmatrix}
 \end{equation}
-计算步骤：
-1. 计算界面左右状态$U_L, U_R$
-2. 构造Jacobian矩阵$A = \partial f/\partial U$
-3. 特征分解：$A = R\Lambda L$
-4. 计算波强度$\alpha = L \cdot (U_R - U_L)$
-5. 组装通量：
+
+\textbf{Van Leer分裂}
+
+质量通量分裂：
 \begin{equation}
-f_{i+1/2} = \frac{1}{2}[f(U_L) + f(U_R)] - \frac{1}{2}R|\Lambda|L \Delta U
+(\rho u)^\pm = \pm \frac{\rho c}{4} (M \pm 1)^2, \quad |M| \leq 1
 \end{equation}
-Roe格式作为典型FDS方法，在光滑区域保持高精度，但需熵修正避免激波后振荡。
+通量函数：
+\begin{equation}
+\mathbf{F}^\pm = \begin{bmatrix}
+(\rho u)^\pm \\
+(\rho u)^\pm \left[ \frac{(\gamma-1)u \pm 2c}{\gamma} \right] \\
+(\rho u)^\pm \left[ \frac{ \left( (\gamma-1)u \pm 2c \right)^2 }{2(\gamma^2-1)} \right]
+\end{bmatrix}
+\end{equation}
+
+\textbf{AUSM分裂}
+
+通量分解：
+\begin{equation}
+\mathbf{F} = \dot{m}\mathbf{\Phi} + \mathbf{P}, \quad \mathbf{\Phi} = [1, u, H]^T
+\end{equation}
+界面通量：
+\begin{equation}
+\mathbf{f}_{1/2} = \dot{m}_{1/2}\mathbf{\Phi}_{L/R} + \mathbf{P}_{1/2}
+\end{equation}
+质量流量：
+\begin{equation}
+\dot{m}_{1/2} = c_{1/2} \begin{cases}
+M_{1/2} \rho_L & M_{1/2} > 0 \\
+M_{1/2} \rho_R & \text{其他}
+\end{cases}, \quad M_{1/2} = M_L^+ + M_R^-
+\end{equation}
+
+\textbf{Lax-Friedrichs分裂}
+\begin{equation}
+\mathbf{F}^\pm = \frac{1}{2} (\mathbf{F} \pm \alpha \mathbf{U}), \quad \alpha = \max|\lambda_i|
+\end{equation}
+
+\paragraph{通量差分分裂(FDS)}
+
+\textbf{Roe方法}
+
+Roe平均：
+\begin{align}
+\hat{\rho} &= \sqrt{\rho_L \rho_R} \\
+\hat{u} &= \frac{\sqrt{\rho_L}u_L + \sqrt{\rho_R}u_R}{\sqrt{\rho_L} + \sqrt{\rho_R}} \\
+\hat{H} &= \frac{\sqrt{\rho_L}H_L + \sqrt{\rho_R}H_R}{\sqrt{\rho_L} + \sqrt{\rho_R}}
+\end{align}
+通量计算：
+\begin{equation}
+\mathbf{f}_{1/2} = \frac{1}{2} \left( \mathbf{F}_L + \mathbf{F}_R \right) - \frac{1}{2} \sum_{k=1}^{3} |\hat{\lambda}_k| \hat{\alpha}_k \hat{\mathbf{r}}_k
+\end{equation}
+
+\textbf{HLL方法}
+
+通量计算：
+\begin{equation}
+\mathbf{f}_{\text{HLL}} = \begin{cases} 
+\mathbf{f}_L & S_L \geq 0 \\
+\frac{S_R\mathbf{f}_L - S_L\mathbf{f}_R + S_LS_R(\mathbf{U}_R - \mathbf{U}_L)}{S_R - S_L} & S_L < 0 < S_R \\
+\mathbf{f}_R & S_R \leq 0
+\end{cases}
+\end{equation}
+波速估计：
+\begin{equation}
+S_L = \min(u_L - c_L, \tilde{u} - \tilde{c}), \quad S_R = \max(u_R + c_R, \tilde{u} + \tilde{c})
+\end{equation}
+
+\textbf{Lax-Wendroff方法}
+
+二阶中心格式：
+\begin{equation}
+\mathbf{f}_{i+1/2} = \mathbf{f}\left( \mathbf{u}_{i+1/2}^{\text{LW}} \right)
+\end{equation}
+中间状态：
+\begin{equation}
+\mathbf{u}_{i+1/2}^{\text{LW}} = \frac{1}{2} (\mathbf{u}_i + \mathbf{u}_{i+1}) - \frac{\Delta t}{2\Delta x} (\mathbf{f}_{i+1} - \mathbf{f}_i)
+\end{equation}
 
 \subsubsection{时间推进格式}
-采用三阶Runge-Kutta方法离散时间项，其Butcher表为：
-\begin{center}
-\begin{tabular}{c|ccc}
-0 & & & \\
-1/2 & 1/2 & & \\
-1 & -1 & 2 & \\
-\hline
-& 1/6 & 2/3 & 1/6
-\end{tabular}
-\end{center}
-计算流程：
+三阶Runge-Kutta (SSP-RK3)：
 \begin{align}
-U^{(1)} &= U^n + \Delta t \mathcal{L}(U^n) \\
-U^{(2)} &= \frac{3}{4}U^n + \frac{1}{4}U^{(1)} + \frac{1}{4}\Delta t \mathcal{L}(U^{(1)}) \\
-U^{n+1} &= \frac{1}{3}U^n + \frac{2}{3}U^{(2)} + \frac{2}{3}\Delta t \mathcal{L}(U^{(2)})
+\mathbf{U}^{(1)} &= \mathbf{U}^n + \Delta t \mathcal{L}(\mathbf{U}^n) \\
+\mathbf{U}^{(2)} &= \frac{3}{4}\mathbf{U}^n + \frac{1}{4}\left[ \mathbf{U}^{(1)} + \Delta t \mathcal{L}(\mathbf{U}^{(1)}) \right] \\
+\mathbf{U}^{n+1} &= \frac{1}{3}\mathbf{U}^n + \frac{2}{3}\left[ \mathbf{U}^{(2)} + \Delta t \mathcal{L}(\mathbf{U}^{(2)}) \right]
 \end{align}
-其中$\mathcal{L}(U)$为空间离散算子。此格式具有：
-1. 三阶时间精度
-2. 强稳定性保持(SSP)特性
-3. 大时间步长稳定性
-4. 与高精度空间格式良好兼容
-
-\subsubsection{附加题：特征重构方法在FVS框架中的应用}
-\label{sec:char_recon}
-
-特征重构方法的核心思想是将守恒变量投影到特征空间进行处理，其数学基础为：
+稳定性条件：
 \begin{equation}
-W = L \cdot U, \quad L = \text{左特征矩阵}
+\text{CFL} = \max \left( |u| + c \right) \frac{\Delta t}{\Delta x} \leq 1.5
 \end{equation}
 
-在FVS框架中的实施步骤：\\
-1. \textbf{局部特征分解}：
-   \begin{equation}
-   A = \frac{\partial f}{\partial U} = R\Lambda L
-   \end{equation}
-   其中$\Lambda = \text{diag}(\lambda_k)$为特征值矩阵
+\newpage
+\section*{符号说明}
+\begin{table}[h]
+\centering
+\begin{tabular}{c|l}
+\hline
+符号 & 物理意义 \\
+\hline
+$\rho$ & 密度 \\
+$u$ & 速度 \\
+$p$ & 压强 \\
+$E$ & 总能 \\
+$c$ & 声速 $c = \sqrt{\gamma p / \rho}$ \\
+$H$ & 总焓 $H = (E + p)/\rho$ \\
+$\gamma$ & 比热比 \\
+$\mathbf{R},\mathbf{L}$ & 右/左特征向量矩阵 \\
+$\lambda$ & 特征值 \\
+$\Delta x$ & 空间步长 \\
+$\Delta t$ & 时间步长 \\
+\hline
+\end{tabular}
+\end{table}
 
-2. \textbf{特征变量投影}：
-   \begin{equation}
-   W_L = L \cdot U_L, \quad W_R = L \cdot U_R
-   \end{equation}
+\newpage
+\section{代码生成与调试}
+由于本次的代码量大，且要求复杂，所以编写代码的过程中严格遵循模块化思路，在编写之初就按照功能划分了多个模块，分别为：
+\begin{itemize}
+    \item \textbf{main.py}：主程序入口，负责整体流程控制
+    \item \textbf{config.py}：配置模块，存储参数设置和初始条件
+    \item \textbf{time\_integration.py}：时间积分模块，包含三阶Runge--Kutta方法实现
+    \item \textbf{utils}：工具函数库，包含数据处理、可视化、调用精确解、边界条件处理等功能
+    \item \textbf{initialization}: 初始条件模块，负责设置初始状态和网格划分
+    \item \textbf{flux}: 通量计算模块，包含FVS、FDS等格式实现
+    \item \textbf{schemes}: 数值格式模块，包含TVD、WENO等格式实现
+\end{itemize}
+对于每个模块，在编写完成后都进行了单元测试，确保各个模块功能正确。主程序通过调用这些模块实现整体流程控制。测试所用的程序在\textbf{test}目录下，包含了对各个模块的单元测试脚本。接下来我将按照编写的顺序对各个模块进行介绍。
+\subsection{initialization}
+在初始化模块下，我一共编写两个文件:一个是 \textbf{domain\_setup.py}，用于设置计算域和网格划分；另一个是 \textbf{sod\_initial.py}，用于设置初始条件。
 
-3. \textbf{特征空间重构}：
-   \begin{align}
-   W_{i+1/2}^L &= \text{Recon}(W_{i-1}, W_i, W_{i+1}) \\
-   W_{i+1/2}^R &= \text{Recon}(W_i, W_{i+1}, W_{i+2})
-   \end{align}
-   采用WENO/TVD等重构技术
+在test目录中的\textbf{initialization\_test.py}中，我对这两个模块进行了单元测试，确保它们能够正确设置计算域和初始条件。
+\subsection{utils}
+在工具函数模块下，我编写了\textbf{boundary.py}、\textbf{exact\_solution.py}、\textbf{visualization.py}三个文件，同时还将来自GitLab\cite{sodcal2025}的代码\textbf{gitlab\_sod\_analytical.py}也放置于此模块下。
+其中\textbf{boundary.py}实现了三种边界条件处理，\textbf{exact\_solution.py}在调用GitLab上的代码的基础上实现了Sod激波管问题的精确解计算，\textbf{visualization.py}实现了结果可视化功能。
 
-4. \textbf{物理空间恢复}：
-   \begin{equation}
-   U_{i+1/2}^L = R \cdot W_{i+1/2}^L, \quad U_{i+1/2}^R = R \cdot W_{i+1/2}^R
-   \end{equation}
+在test目录中的\textbf{boundary\_test.py}、\textbf{exact\_solution\_test.py}和\textbf{visualization\_test.py}中，我对这些工具函数进行了单元测试，确保它们能够正确处理边界条件、计算精确解和可视化结果。
+\subsection{flux}
+在通量计算模块下，我编写了\textbf{flux\_fvs.py}和\textbf{flux\_fds.py}两个文件，分别实现了FVS和FDS格式的通量计算。
+其中\textbf{flux\_fvs.py}实现了Steger-Warming、Van Leer、AUSM和Lax-Friedrichs四种通量分裂方法，\textbf{flux\_fds.py}实现了HLL、Roe和Lax-Wendroff三种通量差分分裂方法。
+但是其中的Roe方法存在问题，我在尝试多次后仍然未能解决bug，所以在择时请勿使用Roe方法。
+\subsection{schemes}
+在数值格式模块下，我编写了\textbf{tvd.py}、 \textbf{weno.py}和\textbf{gvc.py}三个文件，分别实现了TVD格式、WENO格式和群速度控制格式。
+其中\textbf{tvd.py}实现了Minmod限制器的TVD格式，\textbf{weno.py}实现了WENO-JS和WENO-Z格式，\textbf{gvc.py}实现了群速度控制格式。
 
-5. \textbf{FVS通量计算}：
-   \begin{equation}
-   f_{i+1/2} = f^+(U_{i+1/2}^L) + f^-(U_{i+1/2}^R)
-   \end{equation}
+在test目录中的\textbf{tvd\_fvs\_rk3\_test.py}中，我对于TVD、FVS和RK3格式进行了单元测试，确保在这一组合下能够正确计算Sod激波管问题的数值解。
+
+在test目录中的\textbf{weno\_test.py}中，我对WENO格式进行了单元测试，确保其能够正确处理Sod激波管问题的数值解。
+
+在test目录中的\textbf{gvc\_test.py}中，我对群速度控制格式进行了单元测试，确保其能够正确处理Sod激波管问题的数值解。
+
+在test目录中的\textbf{fds\_test.py}中，我在使用TVD格式的基础上，测试了FDS格式的通量计算，确保其能够正确处理Sod激波管问题的数值解。
+\subsection{time\_integration.py}
+主目录下，我编写了\textbf{time\_integration.py}，用于实现三阶Runge-Kutta时间积分方法和计算$\Delta t$。
+\subsection{config.py}
+在主目录下，我编写了\textbf{config.py}，用于存储参数设置和初始条件。该文件包含了所有需要的参数，如计算域、网格划分、初始条件等。此外，在这个文件中，
+用户可以自主选择使用的数值格式和通量计算方法。这样可以方便地进行参数调整和格式切换，而无需修改其他代码。
+\subsection{main.py}
+作为项目的主程序入口，\textbf{main.py}负责整体流程控制。它首先导入配置文件中的参数设置，然后调用各个模块实现Sod激波管问题的数值计算和可视化。
+
+\subsection{使用方法}
+在项目根目录下，用户可以通过以下命令运行主程序：
+\begin{verbatim}
+    python main.py
+\end{verbatim}
+运行后，程序将自动执行以下步骤：
+\begin{enumerate}           
+    \item 导入配置文件中的参数设置
+    \item 调用初始化模块设置计算域和初始条件
+    \item 调用工具函数模块处理边界条件和计算精确解
+    \item 调用通量计算模块计算通量
+    \item 调用数值格式模块进行数值计算
+    \item 调用时间积分模块进行时间推进
+    \item 可视化结果并保存图像文件到 \textbf{result}目录下
+\end{enumerate}
+运行完成后，用户可以在 \textbf{result}目录下找到生成的图像文件，这些图像展示了Sod激波管问题的数值解和精确解的对比。
+如果需要修改参数设置或选择不同的数值格式和通量计算方法，只需编辑 \textbf{config.py} 文件即可。
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{config_example.png}
+    \caption{config.py 参数设置示例}
+    \label{fig:config_example}
+\end{figure}
+%插入git commit信息
+\subsection{代码提交信息}
+在项目开发过程中，我使用了Git进行版本控制。以下是一些关键的提交信息
+%插入图片
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{c1.png}
+    \caption{Git提交信息示例1}
+    \label{fig:git_commit_info1}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{c2.png}
+    \caption{Git提交信息示例2}
+    \label{fig:git_commit_info2}
+\end{figure}
+
+
+\newpage
+\section{结果讨论和物理解释}
 
 
 
-%附录
 \newpage
 \appendix
 \section*{AI工具使用声明表}

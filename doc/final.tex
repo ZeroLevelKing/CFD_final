@@ -406,7 +406,6 @@ $\Delta t$ & 时间步长 \\
 \end{tabular}
 \end{table}
 
-\newpage
 \section{代码生成与调试}
 由于本次的代码量大，且要求复杂，所以编写代码的过程中严格遵循模块化思路，在编写之初就按照功能划分了多个模块，分别为：
 \begin{itemize}
@@ -493,14 +492,97 @@ $\Delta t$ & 时间步长 \\
 \end{figure}
 
 
-\newpage
 \section{结果讨论和物理解释}
+\subsection{计算域对于结果的影响}
+以 WENO + FVS(van\_leer) + RK3 格式为例，在网格密度为 200 时，计算域的选择对结果有显著影响。较小的计算域可能导致激波和膨胀波未能完全发展，而过大的计算域则可能增加计算时间和资源消耗。通过调整计算域，可以更好地捕捉激波、接触间断和膨胀波的演化过程。
+%插入图片
+\begin{figure}
+    \includegraphics[width=0.5\textwidth]{5-2.png}
+    \includegraphics[width=0.5\textwidth]{1-2.png}\\
+    \includegraphics[width=0.5\textwidth]{1-02.png}
+    \includegraphics[width=0.5\textwidth]{5-02.png}
+    \caption{计算域对结果的影响示例}
+    \label{fig:domain_effect}
+\end{figure}
+观察图\ref{fig:domain_effect}，可以看到不同计算域下的激波、接触间断和膨胀波位置和形状的变化。较小的计算域可能导致激波未能完全发展，而较大的计算域则能够更好地捕捉到激波和膨胀波的完整演化过程。
+根据多次计算实验判断，计算域在取值为$ x_range / t_range \approx 5$ 时为佳，在接下来，我们取 $x \in [-5, 5]$ ， $t \in [0, 2.0]$ ，能够较好地反映Sod激波管问题的物理特性。
+\subsection{网格密度对结果的影响}
+同样以 WENO + FVS(van\_leer) + RK3 格式为例，网格密度的选择对结果也有显著影响。较粗的网格可能导致激波和膨胀波的分辨率不足，而较细的网格则能够更好地捕捉到激波和膨胀波的细节。
+通过调整网格密度，可以更好地平衡计算精度和计算效率。
+%插入图片
+\begin{figure}
+    \includegraphics[width=0.5\textwidth]{50.png}
+    \includegraphics[width=0.5\textwidth]{100.png}\\
+    \includegraphics[width=0.5\textwidth]{200.png}
+    \includegraphics[width=0.5\textwidth]{500.png}
+    \caption{网格密度对结果的影响示例}
+    \label{fig:grid_effect}
+\end{figure}
+考虑到计算成本和结果精度的平衡，网格密度设置为 200 时能够较好地捕捉激波、接触间断和膨胀波的演化过程。图\ref{fig:grid_effect}展示了不同网格密度下的结果对比，可以看到随着网格密度的增加，激波和膨胀波的形状和位置逐渐趋于稳定。
+\subsection{激波捕捉格式的影响}
+激波捕捉格式的选择对结果有显著影响。不同的格式在处理激波和膨胀波时具有不同的数值耗散特性和精度。在通量处理方法采用 FVS(van\_leer) 的情况下，TVD、WENO和群速度控制格式在捕捉激波和膨胀波方面表现出不同的特性。
+%插入图片
+\begin{figure}
+    \includegraphics[width=0.5\textwidth]{tvd.png}
+    \includegraphics[width=0.5\textwidth]{weno.png}\\
+    \includegraphics[width=0.5\textwidth]{gvc.png}
+    \caption{激波捕捉格式对结果的影响示例}
+    \label{fig:shock_capturing_effect}
+\end{figure}
+观察图\ref{fig:shock_capturing_effect}，可以看到不同激波捕捉格式下的激波和膨胀波形状和位置的变化。结合我对于这几种格式的多次计算实验，得出以下结论：
+\begin{itemize}
+    \item TVD格式（Minmod限制器）能够捕捉激波和膨胀波，但在接触间断处计算的结果会呈现平滑化现象，可能导致激波和膨胀波的细节损失。
+    \item WENO格式在处理激波和膨胀波时具有更高的精度，能够较好地捕捉激波和膨胀波的细节，但计算成本较高，尤其在网格密度较大时。
+    \item 群速度控制格式能够有效抑制数值耗散，保持激波和膨胀波的细节，尤其在接触间断处表现出较好的稳定性，但需要适当选择控制系数以平衡计算精度和效率。
+\end{itemize}
+\subsection{通量处理方法的影响}
+通量处理方法的选择对结果也有显著影响。在激波捕捉格式采用 WENO 的情况下，FVS、FDS和Lax-Wendroff等通量处理方法在捕捉激波和膨胀波方面表现出不同的特性。
 
+对于FVS方法，Steger-Warming、Van Leer、AUSM和Lax-Friedrichs等分裂方法在处理激波和膨胀波时的表现如图\ref{fig:flux_effect}所示。可以看到，不同分裂方法在激波和膨胀波的形状和位置上存在差异。
+%插入图片
+\begin{figure}
+    \includegraphics[width=0.5\textwidth]{steger_warming.png}
+    \includegraphics[width=0.5\textwidth]{van_leer.png}\\
+    \includegraphics[width=0.5\textwidth]{ausm.png}
+    \includegraphics[width=0.5\textwidth]{lax_friedrichs.png}
+    \caption{通量处理方法对结果的影响示例}
+    \label{fig:flux_effect}
+\end{figure}
+结合多次计算实验，得出以下结论：
+\begin{itemize}
+    \item Steger-Warming分裂方法是经典的激波捕捉方法，但是与其他分裂方法相比，其在处理激波和膨胀波时可能会引入较大的数值耗散，导致激波和膨胀波的形状出现平滑化现象。
+    \item Van Leer分裂方法在处理激波时表现出较好的精度，但在接触间断处可能出现数值振荡现象。
+    \item AUSM分裂方法在处理激波和膨胀波时具有较低的数值耗散，能够保持激波和膨胀波的细节，但是在均匀区域可能出现数值振荡现象。
+    \item Lax-Friedrichs分裂方法在处理激波时表现出较低的数值耗散，在激波捕捉格式采用 WENO 的情况下，能够较好地捕捉激波和膨胀波的细节，在接触间断处仅有轻微的平滑化现象。
+\end{itemize}
 
+对于FVS方法，HLL和Lax-Wendroff等通量差分分裂方法在处理激波和膨胀波时的表现如图\ref{fig:flux_diff_effect}所示。可以看到，不同分裂方法在激波和膨胀波的形状和位置上存在差异。
+%插入图片
+\begin{figure}
+    \includegraphics[width=0.5\textwidth]{hll.png}
+    \includegraphics[width=0.5\textwidth]{lax_wendroff.png}
+    \caption{通量差分分裂方法对结果的影响示例}
+    \label{fig:flux_diff_effect}
+\end{figure}
+观察可知：
+\begin{itemize}
+    \item HLL方法在处理激波和膨胀波时表现出较好的精度。
+    \item Lax-Wendroff方法在处理激波时表现出较低的数值耗散，能够保持激波和膨胀波的细节，但是接触间断处可能出现数值振荡现象。
+\end{itemize}
+\subsection{综合讨论}
+综合上述讨论，可以得出如果在适宜计算成本下想得到较为精确的Sod激波管问题数值解，建议使用以下组合：
+\begin{itemize}
+    \item 计算域：$x \in [-5, 5]$，$t \in [0, 2.0]$
+    \item 网格密度：200
+    \item 激波捕捉格式：WENO-Z
+    \item 通量处理方法：FVS(van Leer) 或 FDS(HLL)
+    \item 时间推进格式：三阶Runge-Kutta (SSP-RK3)
+\end{itemize}
+这种组合能够较好地平衡计算精度和效率，捕捉激波。
 
 \newpage
 \appendix
-\section*{AI工具使用声明表}
+\section{AI工具使用声明表}
 \begin{table}[H]
     \centering
     \begin{tabular}{c|c|c}
@@ -512,7 +594,7 @@ $\Delta t$ & 时间步长 \\
         ReadMe.md & 80\% & AI生成一个框架，在此基础上增加而来 \\
         .gitignore & 100\% & 针对于python和latex的自动生成.gitignore文件  \\
         src/utils/visualization.py & 30\% & 使用AI解决了中文显示问题 \\
-        test/ & 90\% & 测试代码，只是调用函数，本身不涉及核心代码，用AI生成 \\
+        test/ & 70\% & 测试代码，只是调用函数，本身不涉及核心代码，用AI生成 \\
         src/ 下其余代码 & 10\% & 自己编写，用AI debug 和编写注释 \\
         \hline
     \end{tabular}
@@ -521,7 +603,7 @@ $\Delta t$ & 时间步长 \\
 
 
 \newpage
-\section*{}
+\section{}
 % 使用标准的BibTeX格式
 \bibliographystyle{unsrturl} % 更改为支持URL的样式
 \bibliography{reference} % 指定BibTeX数据库文件

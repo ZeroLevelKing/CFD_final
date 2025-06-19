@@ -48,7 +48,7 @@ def weno5_js_reconstruction(v):
 
 def weno5_z_reconstruction(v):
     """
-    五阶WENO-Z重构 (Borges et al., 2008)
+    五阶WENO-Z重构 
     
     参数:
     v -- 包含5个相邻单元值的数组 [v_{i-2}, v_{i-1}, v_i, v_{i+1}, v_{i+2}]

@@ -46,5 +46,4 @@ class Config:
             'dt': 0.0  # 将由CFL条件计算
         }
 
-# 创建全局配置实例
 params = Config()

@@ -1,8 +1,6 @@
-# src/fluxes/fds.py
-
 import numpy as np
 
-def lax_wendroff_flux(states, gamma, dx, dt):
+def lax_wendroff_flux(states, gamma, dx, dt, **kwargs):
     """
     Lax-Wendroff 格式通量计算 (适用于单个界面)
     
@@ -11,6 +9,7 @@ def lax_wendroff_flux(states, gamma, dx, dt):
     gamma -- 比热比
     dx -- 空间步长
     dt -- 时间步长
+    kwargs -- 其他可选参数
     
     返回:
     通量向量 (3,)
@@ -156,3 +155,86 @@ def roe_flux(states, gamma):
     # 最终保护：确保通量值合理
     F = np.nan_to_num(F, nan=0.0, posinf=1e10, neginf=-1e10)
     return np.clip(F, -1e10, 1e10)  # 限制通量范围
+
+def hll_flux(states, gamma, **kwargs):
+    """
+    HLL (Harten-Lax-van Leer) 近似黎曼解算器 (FDS方法)
+    
+    参数:
+    states -- 左右状态数组 [ρ, ρu, E], 形状为 (3, 2)
+    gamma -- 比热比
+    kwargs -- 其他可选参数
+    
+    返回:
+    通量向量 (3,)
+    
+    参考: Toro, E. F. (2009). Riemann solvers and numerical methods for fluid dynamics.
+    """
+    # 提取左右状态
+    U_L = states[:, 0]
+    U_R = states[:, 1]
+    
+    # 计算左状态原始变量
+    rho_L = max(U_L[0], 1e-10)
+    u_L = U_L[1] / max(rho_L, 1e-10)
+    e_L = max(U_L[2] - 0.5 * rho_L * min(u_L**2, 1e10), 1e-10)
+    p_L = max((gamma - 1) * e_L, 1e-10)
+    c_L = np.sqrt(gamma * p_L / max(rho_L, 1e-10))
+    
+    # 计算右状态原始变量
+    rho_R = max(U_R[0], 1e-10)
+    u_R = U_R[1] / max(rho_R, 1e-10)
+    e_R = max(U_R[2] - 0.5 * rho_R * min(u_R**2, 1e10), 1e-10)
+    p_R = max((gamma - 1) * e_R, 1e-10)
+    c_R = np.sqrt(gamma * p_R / max(rho_R, 1e-10))
+    
+    # 计算左右通量
+    F_L = np.array([
+        rho_L * u_L,
+        rho_L * u_L**2 + p_L,
+        u_L * (U_L[2] + p_L)
+    ])
+    
+    F_R = np.array([
+        rho_R * u_R,
+        rho_R * u_R**2 + p_R,
+        u_R * (U_R[2] + p_R)
+    ])
+    
+    # 估计波速 (使用Davis和Einfieldt建议的估计方法)
+    # 左波速
+    S_L = min(u_L - c_L, u_R - c_R)
+    
+    # 右波速
+    S_R = max(u_L + c_L, u_R + c_R)
+    
+    # 计算HLL通量
+    if S_L >= 0:
+        return F_L
+    elif S_R <= 0:
+        return F_R
+    else:
+        # 计算HLL中间状态
+        U_star = (S_R * U_R - S_L * U_L + F_L - F_R) / (S_R - S_L)
+        
+        # 计算HLL通量
+        return (S_R * F_L - S_L * F_R + S_L * S_R * (U_R - U_L)) / (S_R - S_L)
+
+def get_fds_flux_function(flux_type='roe'):
+    """
+    获取指定的FDS通量函数
+    
+    参数:
+    flux_type -- 通量类型 ('roe', 'lax_wendroff', 'hll')
+    
+    返回:
+    通量计算函数
+    """
+    if flux_type == 'roe':
+        return roe_flux
+    elif flux_type == 'lax_wendroff':
+        return lax_wendroff_flux
+    elif flux_type == 'hll':
+        return hll_flux
+    else:
+        raise ValueError(f"未知的FDS通量类型: {flux_type}")

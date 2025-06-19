@@ -84,7 +84,7 @@ def tvd_flux(U, flux_func, gamma=None, limiter='minmod', **kwargs):
     flux_func -- 通量计算函数，接受左右状态作为参数
     gamma -- 比热比（可选）
     limiter -- 限制器类型 ('minmod', 'superbee', 'van_leer')
-    kwargs -- 传递给通量函数的额外参数
+    kwargs -- 传递给通量函数的额外参数（包括 dx 和 dt）
     
     返回:
     通量数组 F, 形状为 (3, nx-1)
@@ -105,7 +105,7 @@ def tvd_flux(U, flux_func, gamma=None, limiter='minmod', **kwargs):
         # 创建状态数组 (2个状态点)
         states = np.array([state_left, state_right]).T
         
-        # 计算通量
+        # 计算通量 - 传递所有额外参数
         if gamma is not None:
             flux_i = flux_func(states, gamma, **kwargs)
         else:

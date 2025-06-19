@@ -83,7 +83,7 @@ f(\mathbf{U}) = \begin{bmatrix} \rho u \\ \rho u^2 + p \\ u(E + p) \end{bmatrix}
 
 \subsection{Riemann问题精确解}
 \subsubsection{波系结构}
-根据空气动力学知识，该 Sod 激波管中可能出现三种波：
+根据空气动力学知识\cite{anderson2019}，该 Sod 激波管中可能出现三种波：
 \begin{itemize}
     \item 激波：流体密度、速度、压力均发生突变，满足 Rankine-Hugoniot (R-H) 关系式。
     \item 接触间断：流体仅密度发生突变，速度与压力不变。
@@ -117,7 +117,7 @@ $W_s$ 为激波传播速度，$c_L = \sqrt{\gamma p_L/\rho_L}$ 为左侧声速�
 
 \subsubsection{解析解表达式}
 解析解通过求解以下方程组获得:
-\paragraph{1-3 两区, 等熵关系式}
+\paragraph{1-3 两区, 等熵关系式}\cite{borges2008}
 \begin{equation}
     \frac{p^{*}}{\left(\rho^{* L}\right)^{\gamma}}=\frac{p_{1}}{\left(\rho_{1}\right)^{\gamma}}
 \end{equation}
@@ -182,7 +182,7 @@ U_{N+1} &= U_N
 
 \subsubsection{激波捕捉格式}
 \paragraph{TVD格式（Minmod限制器）}
-
+\cite{harten1983}
 总变差定义：
 \begin{equation}
 TV(U^n) = \sum_{i=-\infty}^{\infty} |U_{i+1}^n - U_i^n|
@@ -216,7 +216,7 @@ r & 0 < r < 1 \\
 \end{itemize}
 
 \paragraph{群速度控制（GVC）格式}
-
+\cite{jiang1999}
 通量修正方程：
 \begin{equation}
 \mathbf{F}^{GVC} = \mathbf{F}^{base} + \epsilon \Delta x^3 \frac{\partial^3 \mathbf{U}}{\partial x^3}
@@ -249,6 +249,7 @@ p_2(x) &= \frac{1}{3}U_i + \frac{5}{6}U_{i+1} - \frac{1}{6}U_{i+2}
 \end{enumerate}
 
 \textbf{WENO-JS}
+\cite{jiang1996}
 光滑指示器：
 \begin{align}
 \beta_k &= \sum_{l=1}^{2} \Delta x^{2l-1} \int_{x_{i-1/2}}^{x_{i+1/2}} \left( \frac{d^l p_k(x)}{dx^l} \right)^2 dx \\
@@ -293,7 +294,7 @@ d_0 &= 0.3, \quad d_1 = 0.6, \quad d_2 = 0.1 \\
 \end{equation}
 
 \textbf{Van Leer分裂}
-
+\cite{vanleer1982}
 质量通量分裂：
 \begin{equation}
 (\rho u)^\pm = \pm \frac{\rho c}{4} (M \pm 1)^2, \quad |M| \leq 1
@@ -308,7 +309,7 @@ d_0 &= 0.3, \quad d_1 = 0.6, \quad d_2 = 0.1 \\
 \end{equation}
 
 \textbf{AUSM分裂}
-
+\cite{liou1996}
 通量分解：
 \begin{equation}
 \mathbf{F} = \dot{m}\mathbf{\Phi} + \mathbf{P}, \quad \mathbf{\Phi} = [1, u, H]^T
@@ -372,7 +373,7 @@ S_L = \min(u_L - c_L, \tilde{u} - \tilde{c}), \quad S_R = \max(u_R + c_R, \tilde
 \end{equation}
 
 \subsubsection{时间推进格式}
-三阶Runge-Kutta (SSP-RK3)：
+三阶Runge-Kutta (SSP-RK3)\cite{shu1988}：
 \begin{align}
 \mathbf{U}^{(1)} &= \mathbf{U}^n + \Delta t \mathcal{L}(\mathbf{U}^n) \\
 \mathbf{U}^{(2)} &= \frac{3}{4}\mathbf{U}^n + \frac{1}{4}\left[ \mathbf{U}^{(1)} + \Delta t \mathcal{L}(\mathbf{U}^{(1)}) \right] \\
@@ -556,7 +557,7 @@ $\Delta t$ & 时间步长 \\
     \item Lax-Friedrichs分裂方法在处理激波时表现出较低的数值耗散，在激波捕捉格式采用 WENO 的情况下，能够较好地捕捉激波和膨胀波的细节，在接触间断处仅有轻微的平滑化现象。
 \end{itemize}
 
-对于FVS方法，HLL和Lax-Wendroff等通量差分分裂方法在处理激波和膨胀波时的表现如图\ref{fig:flux_diff_effect}所示。可以看到，不同分裂方法在激波和膨胀波的形状和位置上存在差异。
+对于FDS方法，HLL和Lax-Wendroff等通量差分分裂方法在处理激波和膨胀波时的表现如图\ref{fig:flux_diff_effect}所示。可以看到，不同分裂方法在激波和膨胀波的形状和位置上存在差异。
 %插入图片
 \begin{figure}
     \includegraphics[width=0.5\textwidth]{hll.png}

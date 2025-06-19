@@ -1,156 +1,193 @@
+# src/schemes/weno.py
+
 import numpy as np
 
-def lax_friedrichs_split(U, flux_func, gamma):
+def weno5_js_reconstruction(v):
     """
-    Lax-Friedrichs 通量分裂
+    五阶WENO-JS重构 (Jiang & Shu, 1996)
     
     参数:
-    U -- 守恒变量数组 [ρ, ρu, E], 形状为 (3, nx)
-    flux_func -- 通量计算函数
-    gamma -- 比热比
+    v -- 包含5个相邻单元值的数组 [v_{i-2}, v_{i-1}, v_i, v_{i+1}, v_{i+2}]
     
     返回:
-    F_p, F_n -- 正负通量分量
+    界面i+1/2处的重构值
     """
-    # 计算原始变量
-    rho = np.maximum(U[0], 1e-10)
-    u = U[1] / rho
-    e = np.maximum(U[2] - 0.5 * rho * u**2, 1e-10)
-    p = np.maximum((gamma - 1) * e, 1e-10)
-    
-    # 计算声速和最大特征速度
-    c = np.sqrt(gamma * p / rho)
-    alpha = np.max(np.abs(u) + c)
-    
-    # 计算通量
-    F = np.zeros_like(U)
-    for i in range(U.shape[1]):
-        states = U[:, i:i+1].T
-        F[:, i] = flux_func(states, gamma)
-    
-    # 通量分裂
-    F_p = 0.5 * (F + alpha * U)
-    F_n = 0.5 * (F - alpha * U)
-    
-    return F_p, F_n
-
-def weno5_fs(F, axis=0):
-    """
-    5阶WENO重构算法 (基于通量分裂)
-    
-    参数:
-    F -- 通量分量 (正或负), 形状为 (3, nx)
-    axis -- 重构方向 (0: 按变量; 1: 按网格点)
-    
-    返回:
-    Fh -- 重构后的半网格点通量, 形状为 (3, nx)
-    """
-    # 确保F是二维数组
-    if len(F.shape) == 1:
-        F = F.reshape(1, -1)
-    
-    n_vars, n_points = F.shape
-    
-    # 初始化输出
-    Fh = np.zeros((n_vars, n_points))
+    # 检查输入长度
+    if len(v) != 5:
+        raise ValueError(f"WENO重构需要5个点，但得到{len(v)}个点")
     
     # 理想权重
-    C = np.array([1/10, 6/10, 3/10])
-    p = 2
-    eps = 1e-6
+    gamma = np.array([0.1, 0.6, 0.3])
     
-    # 起始和结束索引 (避免边界)
-    xs = 2  # 起始索引
-    xt = n_points - 3  # 结束索引
+    # 三个子模板的重构值
+    v0 = (2*v[0] - 7*v[1] + 11*v[2]) / 6.0
+    v1 = (-v[1] + 5*v[2] + 2*v[3]) / 6.0
+    v2 = (2*v[2] + 5*v[3] - v[4]) / 6.0
     
-    for var in range(n_vars):
-        F_var = F[var, :]
-        
-        for j in range(xs, xt + 1):
-            # 计算光滑指示器 beta
-            beta1 = (1/4)*(F_var[j-2] - 4*F_var[j-1] + 3*F_var[j])**2 + (13/12)*(F_var[j-2] - 2*F_var[j-1] + F_var[j])**2
-            beta2 = (1/4)*(F_var[j-1] - F_var[j+1])**2 + (13/12)*(F_var[j-1] - 2*F_var[j] + F_var[j+1])**2
-            beta3 = (1/4)*(3*F_var[j] - 4*F_var[j+1] + F_var[j+2])**2 + (13/12)*(F_var[j] - 2*F_var[j+1] + F_var[j+2])**2
-            
-            # 计算 alpha 和权重 omega
-            alpha = C / (eps + np.array([beta1, beta2, beta3]))**p
-            omega = alpha / np.sum(alpha)
-            
-            # 计算三个模板的通量值
-            F_c1 = (1/3)*F_var[j-2] - (7/6)*F_var[j-1] + (11/6)*F_var[j]
-            F_c2 = (-1/6)*F_var[j-1] + (5/6)*F_var[j] + (1/3)*F_var[j+1]
-            F_c3 = (1/3)*F_var[j] + (5/6)*F_var[j+1] - (1/6)*F_var[j+2]
-            
-            # 加权组合得到 F_{j+1/2}
-            Fh[var, j] = omega[0]*F_c1 + omega[1]*F_c2 + omega[2]*F_c3
+    # 光滑指示器 (smoothness indicators)
+    beta0 = 13/12*(v[0] - 2*v[1] + v[2])**2 + 1/4*(v[0] - 4*v[1] + 3*v[2])**2
+    beta1 = 13/12*(v[1] - 2*v[2] + v[3])**2 + 1/4*(v[1] - v[3])**2
+    beta2 = 13/12*(v[2] - 2*v[3] + v[4])**2 + 1/4*(3*v[2] - 4*v[3] + v[4])**2
     
-    return Fh
+    # 避免除零
+    epsilon = 1e-6
+    
+    # 计算权重
+    alpha0 = gamma[0] / (epsilon + beta0)**2
+    alpha1 = gamma[1] / (epsilon + beta1)**2
+    alpha2 = gamma[2] / (epsilon + beta2)**2
+    
+    alpha_sum = alpha0 + alpha1 + alpha2
+    
+    w0 = alpha0 / alpha_sum
+    w1 = alpha1 / alpha_sum
+    w2 = alpha2 / alpha_sum
+    
+    # 加权平均
+    return w0*v0 + w1*v1 + w2*v2
 
-def weno_fs_flux(U, flux_func, gamma, params):
+def weno5_z_reconstruction(v):
     """
-    基于通量分裂的WENO格式通量计算
+    五阶WENO-Z重构 (Borges et al., 2008)
+    
+    参数:
+    v -- 包含5个相邻单元值的数组 [v_{i-2}, v_{i-1}, v_i, v_{i+1}, v_{i+2}]
+    
+    返回:
+    界面i+1/2处的重构值
+    """
+    # 检查输入长度
+    if len(v) != 5:
+        raise ValueError(f"WENO重构需要5个点，但得到{len(v)}个点")
+    
+    # 理想权重
+    gamma = np.array([0.1, 0.6, 0.3])
+    
+    # 三个子模板的重构值
+    v0 = (2*v[0] - 7*v[1] + 11*v[2]) / 6.0
+    v1 = (-v[1] + 5*v[2] + 2*v[3]) / 6.0
+    v2 = (2*v[2] + 5*v[3] - v[4]) / 6.0
+    
+    # 光滑指示器 (smoothness indicators)
+    beta0 = 13/12*(v[0] - 2*v[1] + v[2])**2 + 1/4*(v[0] - 4*v[1] + 3*v[2])**2
+    beta1 = 13/12*(v[1] - 2*v[2] + v[3])**2 + 1/4*(v[1] - v[3])**2
+    beta2 = 13/12*(v[2] - 2*v[3] + v[4])**2 + 1/4*(3*v[2] - 4*v[3] + v[4])**2
+    
+    # 计算全局光滑指示器
+    tau5 = np.abs(beta0 - beta2)
+    
+    # 避免除零
+    epsilon = 1e-6
+    
+    # 计算权重 (WENO-Z公式)
+    alpha0 = gamma[0] * (1.0 + (tau5 / (epsilon + beta0)))
+    alpha1 = gamma[1] * (1.0 + (tau5 / (epsilon + beta1)))
+    alpha2 = gamma[2] * (1.0 + (tau5 / (epsilon + beta2)))
+    
+    alpha_sum = alpha0 + alpha1 + alpha2
+    
+    w0 = alpha0 / alpha_sum
+    w1 = alpha1 / alpha_sum
+    w2 = alpha2 / alpha_sum
+    
+    # 加权平均
+    return w0*v0 + w1*v1 + w2*v2
+
+def weno_reconstruction(U, num_ghost=3, variant='z'):
+    """
+    对守恒变量进行WENO重构
+    
+    参数:
+    U -- 守恒变量数组 [ρ, ρu, E], 形状为 (3, n)
+    num_ghost -- 虚单元层数 (至少3)
+    variant -- WENO变体 ('js' 或 'z')
+    
+    返回:
+    重构后的左右状态 U_L, U_R, 形状均为 (3, n-1)
+    """
+    n = U.shape[1]
+    n_interface = n - 1  # 界面数量
+    
+    # 检查虚单元层数
+    if num_ghost < 3:
+        raise ValueError("WENO重构需要至少3层虚单元")
+    
+    # 选择WENO变体
+    if variant == 'js':
+        weno_func = weno5_js_reconstruction
+    elif variant == 'z':
+        weno_func = weno5_z_reconstruction
+    else:
+        raise ValueError(f"未知的WENO变体: {variant}")
+    
+    # 初始化左右状态数组
+    U_L = np.zeros((3, n_interface))
+    U_R = np.zeros((3, n_interface))
+    
+    # 对每个变量分别处理
+    for var in range(3):
+        # 对每个界面进行重构（仅对内部点）
+        for i in range(num_ghost, n - num_ghost - 1):
+            # 左状态重构: 使用 [i-2, i-1, i, i+1, i+2]
+            stencil_left = U[var, i-2:i+3]
+            U_L[var, i] = weno_func(stencil_left)
+            
+            # 右状态重构: 使用 [i+3, i+2, i+1, i, i-1] 的逆序
+            stencil_right = U[var, i-1:i+4][::-1]
+            U_R[var, i] = weno_func(stencil_right)
+    
+    # 边界处理：使用一阶重构
+    for var in range(3):
+        for i in range(num_ghost):
+            # 左边界
+            U_L[var, i] = U[var, i+1]  # 右侧值
+            U_R[var, i] = U[var, i+1]  # 右侧值
+            
+            # 右边界
+            j = n_interface - 1 - i
+            U_L[var, j] = U[var, j]    # 左侧值
+            U_R[var, j] = U[var, j]    # 左侧值
+    
+    return U_L, U_R
+
+def weno_flux(U, flux_func, gamma=None, num_ghost=3, variant='z', **kwargs):
+    """
+    WENO格式通量计算
     
     参数:
     U -- 守恒变量数组 [ρ, ρu, E], 形状为 (3, nx)
-    flux_func -- 通量计算函数
-    gamma -- 比热比
-    params -- 计算参数字典
+    flux_func -- 通量计算函数，接受左右状态作为参数
+    gamma -- 比热比（可选）
+    num_ghost -- 虚单元层数 (默认3)
+    variant -- WENO变体 ('js' 或 'z', 默认'z')
+    kwargs -- 传递给通量函数的额外参数
     
     返回:
-    F -- 通量数组, 形状为 (3, nx-1)
+    通量数组 F, 形状为 (3, nx-1)
     """
+    # WENO重构
+    U_L, U_R = weno_reconstruction(U, num_ghost, variant)
+    
     nx = U.shape[1]
-    F = np.zeros((3, nx-1))
+    n_interface = nx - 1
+    F = np.zeros((3, n_interface))  # 界面通量比网格点数少1
     
-    # 应用通量分裂
-    F_p, F_n = lax_friedrichs_split(U, flux_func, gamma)
-    
-    # 正通量分量重构 (F+)
-    Fh_p = weno5_fs(F_p)
-    
-    # 负通量分量重构 (F-)
-    Fh_n = weno5_fs(F_n)
-    
-    # 组合通量
-    for j in range(1, nx-2):  # 避开边界
-        # 正通量在 j+1/2 处
-        # 负通量在 j-1/2 处
-        F[:, j] = Fh_p[:, j] + Fh_n[:, j+1]
-    
-    # 边界处理 (一阶)
-    F[:, 0] = F_p[:, 0] + F_n[:, 1]
-    F[:, nx-2] = F_p[:, nx-2] + F_n[:, nx-1]
+    # 计算每个界面的通量
+    for i in range(n_interface):
+        # 使用重构后的左右状态计算通量
+        state_left = U_L[:, i]
+        state_right = U_R[:, i]
+        
+        # 创建状态数组 (2个状态点)
+        states = np.array([state_left, state_right]).T
+        
+        # 计算通量
+        if gamma is not None:
+            flux_i = flux_func(states, gamma, **kwargs)
+        else:
+            flux_i = flux_func(states, **kwargs)
+        
+        # 存储通量
+        F[:, i] = flux_i
     
     return F
-
-def weno_fs_rhs(U, flux_func, gamma, params):
-    """
-    基于通量分裂的WENO格式右端项计算
-    
-    参数:
-    U -- 守恒变量数组 [ρ, ρu, E], 形状为 (3, nx)
-    flux_func -- 通量计算函数
-    gamma -- 比热比
-    params -- 计算参数字典
-    
-    返回:
-    RHS -- 空间离散项, 形状为 (3, nx)
-    """
-    dx = params['dx']
-    nx = U.shape[1]
-    
-    # 计算通量
-    F = weno_fs_flux(U, flux_func, gamma, params)
-    
-    # 计算通量差
-    RHS = np.zeros_like(U)
-    
-    # 内部点
-    for i in range(1, nx-1):
-        RHS[:, i] = - (F[:, i] - F[:, i-1]) / dx
-    
-    # 边界点 (一阶)
-    RHS[:, 0] = - (F[:, 0] - np.zeros(3)) / dx
-    RHS[:, nx-1] = - (np.zeros(3) - F[:, nx-2]) / dx
-    
-    return RHS

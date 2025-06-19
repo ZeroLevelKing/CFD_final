@@ -453,7 +453,7 @@ $\Delta t$ & 时间步长 \\
 作为项目的主程序入口，\textbf{main.py}负责整体流程控制。它首先导入配置文件中的参数设置，然后调用各个模块实现Sod激波管问题的数值计算和可视化。
 
 \subsection{使用方法}
-在项目根目录下，用户可以通过以下命令运行主程序：
+在项目的 src 目录下，用户可以通过以下命令运行主程序：
 \begin{verbatim}
     python main.py
 \end{verbatim}
@@ -505,11 +505,16 @@ $\Delta t$ & 时间步长 \\
     \centering
     \begin{tabular}{c|c|c}
         \hline
-        使用内容 & 工具名称 & 使用目的 \\ \hline
-        hw2.tex 1-9行、图片插入 & Github Copilot & 调整pdf格式，调用宏包，省略插入图片的重复性工作 \\ 
-        main.py 6-15行 & DeepSeek & 修正 matplotlib 中文显示问题 \\ 
-        ReadMe.md框架 & DeepSeek & 在DeepSeek的帮助下生成一个框架，在此基础上增加而来 \\
-        .gitignore & Github Copilot & 针对于python和latex的.gitignore文件，完全由Copilot生成  
+        使用内容 & AI工具用量 & 使用目的 \\ 
+        \hline
+        doc/figure/picture\_generate.py & 100\% & 使用AI生成文档中所需要的示意性图片 \\
+        doc/final.tex & 20\% & 省略插入图片和写格式控制语句的重复性工作 \\ 
+        ReadMe.md & 80\% & AI生成一个框架，在此基础上增加而来 \\
+        .gitignore & 100\% & 针对于python和latex的自动生成.gitignore文件  \\
+        src/utils/visualization.py & 30\% & 使用AI解决了中文显示问题 \\
+        test/ & 90\% & 测试代码，只是调用函数，本身不涉及核心代码，用AI生成 \\
+        src/ 下其余代码 & 10\% & 自己编写，用AI debug 和整理格式 \\
+        \hline
     \end{tabular}
     \label{tab:AI_tools}
 \end{table}

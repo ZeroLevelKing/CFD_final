@@ -15,6 +15,7 @@
 │   └── final.tex                # 报告latex源码
 ├──src/
 │   ├── main.py                  # 主程序入口
+│   ├── characteristic.py        # 附加题单独程序
 │   ├── config.py                # 参数配置模块
 │   ├── time_integration.py      # 时间积分模块
 │   ├── initialization/          # 初始条件模块
@@ -61,6 +62,10 @@
 将工作目录调整至 ``` src ```目录下，在shell中输入
    ```bash
    python main.py
+   ```
+查看附加题的尝试：
+   ```bash
+   python characteristic.py
    ```
 
 ## 参数配置

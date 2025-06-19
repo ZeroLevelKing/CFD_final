@@ -384,7 +384,89 @@ S_L = \min(u_L - c_L, \tilde{u} - \tilde{c}), \quad S_R = \max(u_R + c_R, \tilde
 \text{CFL} = \max \left( |u| + c \right) \frac{\Delta t}{\Delta x} \leq 1.5
 \end{equation}
 
-\newpage
+\subsubsection{附加题：应用特征重构于FVS框架}
+\paragraph{基本思想}
+特征重构方法(Characteristic Reconstruction)是将物理问题的特征结构融入数值格式的技术。在FVS(Flux Vector Splitting)框架中应用特征重构的核心思想是：
+\begin{enumerate}
+    \item \textbf{特征空间投影}：将守恒变量投影到特征空间(由系统特征向量张成)
+    \item \textbf{特征变量重构}：在特征空间应用高精度重构方法
+    \item \textbf{守恒空间转换}：将重构后的特征变量转换回守恒空间
+\end{enumerate}
+
+该方法旨在：
+\begin{itemize}
+    \item 减少接触间断处的数值耗散
+    \item 提高密度台阶的分辨率
+    \item 保持激波捕捉能力
+\end{itemize}
+
+\paragraph{数学原理}
+对于一维欧拉方程，特征分解基于Jacobian矩阵 $A = \frac{\partial f}{\partial U}$：
+$$
+A = R \Lambda L
+$$
+其中：
+\begin{itemize}
+    \item $\Lambda$ 是特征值对角矩阵
+    \item $R$ 是右特征向量矩阵
+    \item $L = R^{-1}$ 是左特征向量矩阵
+\end{itemize}
+
+具体形式为：
+\begin{align*}
+\lambda_1 &= u - c, \quad \lambda_2 = u, \quad \lambda_3 = u + c \\
+R &= \begin{bmatrix}
+1 & 1 & 1 \\
+u-c & u & u+c \\
+H - u c & \frac{1}{2}u^2 & H + u c
+\end{bmatrix}
+\end{align*}
+
+\paragraph{特征重构过程}
+特征重构在FVS框架中的实现步骤：
+\begin{enumerate}
+    \item \textbf{局部特征分解}：在界面处计算Roe平均状态
+    \begin{align*}
+    \hat{\rho} &= \sqrt{\rho_L \rho_R} \\
+    \hat{u} &= \frac{\sqrt{\rho_L}u_L + \sqrt{\rho_R}u_R}{\sqrt{\rho_L} + \sqrt{\rho_R}} \\
+    \hat{H} &= \frac{\sqrt{\rho_L}H_L + \sqrt{\rho_R}H_R}{\sqrt{\rho_L} + \sqrt{\rho_R}}
+    \end{align*}
+    
+    \item \textbf{计算特征矩阵}：使用Roe平均状态计算$R$和$L$
+    
+    \item \textbf{特征空间投影}：$W = L U$ ($W$为特征变量)
+    
+    \item \textbf{特征变量重构}：在特征空间应用WENO重构
+    $$
+    W_{\text{recon}} = \text{WENO}(W)
+    $$
+    
+    \item \textbf{守恒空间转换}：$U_{\text{recon}} = R W_{\text{recon}}$
+    
+    \item \textbf{通量计算}：使用重构状态计算FVS通量
+    $$
+    F_{i+1/2} = F^{\text{FVS}}(U_{\text{recon},L}, U_{\text{recon},R})
+    $$
+\end{enumerate}
+
+\textbf{优势}：
+\begin{itemize}
+    \item 显著减少接触间断处的数值耗散
+    \item 提高密度分布的分辨率
+    \item 保持激波捕捉能力
+    \item 与FVS框架兼容
+\end{itemize}
+
+\textbf{挑战}：
+\begin{itemize}
+    \item 计算复杂度增加
+    \item 数值稳定性问题(特别是在低密度区域)
+    \item 需要额外的边界处理
+    \item 对时间步长更敏感
+\end{itemize}
+
+
+
 \section*{符号说明}
 \begin{table}[h]
 \centering
@@ -407,12 +489,15 @@ $\Delta t$ & 时间步长 \\
 \end{tabular}
 \end{table}
 
+
+\newpage
 \section{代码生成与调试}
 由于本次的代码量大，且要求复杂，所以编写代码的过程中严格遵循模块化思路，在编写之初就按照功能划分了多个模块，分别为：
 \begin{itemize}
     \item \textbf{main.py}：主程序入口，负责整体流程控制
     \item \textbf{config.py}：配置模块，存储参数设置和初始条件
     \item \textbf{time\_integration.py}：时间积分模块，包含三阶Runge--Kutta方法实现
+    \item \textbf{Characteristic.py}:附加题，单独实现特征重构方法在FVS框架中的应用
     \item \textbf{utils}：工具函数库，包含数据处理、可视化、调用精确解、边界条件处理等功能
     \item \textbf{initialization}: 初始条件模块，负责设置初始状态和网格划分
     \item \textbf{flux}: 通量计算模块，包含FVS、FDS等格式实现
@@ -451,11 +536,17 @@ $\Delta t$ & 时间步长 \\
 用户可以自主选择使用的数值格式和通量计算方法。这样可以方便地进行参数调整和格式切换，而无需修改其他代码。
 \subsection{main.py}
 作为项目的主程序入口，\textbf{main.py}负责整体流程控制。它首先导入配置文件中的参数设置，然后调用各个模块实现Sod激波管问题的数值计算和可视化。
+\subsection{characteristic.py}
+独立于主程序的附加题模块，\textbf{characteristic.py}实现了特征重构方法在FVS框架中的应用。该模块包含特征分解、特征变量重构和守恒空间转换等功能，采用weno作为重构方法，并在FVS框架中实现了特征重构的通量计算。
 
 \subsection{使用方法}
 在项目的 src 目录下，用户可以通过以下命令运行主程序：
 \begin{verbatim}
     python main.py
+\end{verbatim}
+如果希望运行附加题的特征重构方法，可以使用以下命令：
+\begin{verbatim}
+    python characteristic.py
 \end{verbatim}
 运行后，程序将自动执行以下步骤：
 \begin{enumerate}           
@@ -493,6 +584,8 @@ $\Delta t$ & 时间步长 \\
 \end{figure}
 如果需要查看详细的提交记录，可以查看 \url{https://github.com/ZeroLevelKing/CFD_final.git}
 
+
+\newpage
 \section{结果讨论和物理解释}
 \subsection{计算域对于结果的影响}
 以 WENO + FVS(van\_leer) + RK3 格式为例，在网格密度为 200 时，计算域的选择对结果有显著影响。较小的计算域可能导致激波和膨胀波未能完全发展，而过大的计算域则可能增加计算时间和资源消耗。通过调整计算域，可以更好地捕捉激波、接触间断和膨胀波的演化过程。
@@ -580,6 +673,23 @@ $\Delta t$ & 时间步长 \\
     \item 时间推进格式：三阶Runge-Kutta (SSP-RK3)
 \end{itemize}
 这种组合能够较好地平衡计算精度和效率，捕捉激波。
+\subsection{附加题：特征重构方法在FVS框架中的应用}
+我们期望通过特征重构方法在FVS框架中实现更高精度的激波捕捉。特征重构方法能够有效减少接触间断处的数值耗散，提高密度台阶的分辨率，并保持激波捕捉能力。
+但实际上，对于运行结果图像\ref{fig:characteristic_effect}所示，特征重构方法在FVS框架中的应用并未显著提高激波捕捉精度，反而在接触间断处出现了较大的数值振荡现象。
+%插入图片
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{characteristic.png}
+    \caption{特征重构方法在FVS框架中的应用结果示例}
+    \label{fig:characteristic_effect}
+\end{figure}
+我认为这可能由以下原因造成：
+\begin{enumerate}
+    \item 特征重构实现复杂度高，涉及多次矩阵变换和高频次的矩阵运算，容易积累数值误差。
+    \item 数值稳定性问题，在接触间断附近(特别是低密度区域)，特征矩阵计算容易出现病态条件，声速接近零时，特征矩阵的逆计算不稳定。
+    \item WENO重构中的高阶导数计算对噪声敏感，可能导致接触间断处的数值振荡现象。
+\end{enumerate}
+因此，虽然特征重构方法在理论上具有优势，但在实际应用中需要谨慎处理数值稳定性和误差积累问题。未来可以考虑改进特征矩阵计算方法，或者结合其他数值格式以提高激波捕捉精度。
 
 \newpage
 \appendix
